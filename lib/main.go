@@ -1,33 +1,16 @@
 package main;
 
 import (
-    "fmt"
+    "log"
 
-    "github.com/xabarass/image-builder/lib/images"
+    "github.com/xabarass/image-builder/lib/imagemanager"
 )
 
 func main() {
-    config, err:=images.LoadConfiguration("imgconfig.json")
+    imgManager, err:=imagemanager.Create("imgconfig.json")
     if(err!=nil){
-        fmt.Println(err.Error())
-    }
-    defer config.ImageStore.Close()
-
-
-    fmt.Println("Creating new image entry")
-    newImage, err:= config.ImageStore.CreateScionImage("milan")
-    if(err!=nil){
-        fmt.Println(err.Error())
-        return
+        log.Panic(err.Error())
     }
 
-    fmt.Printf("Created SCION image version %d \n", newImage.GetId())
-
-    err = newImage.Ready("1.0","path1", "etcpath", "homepath");
-    if(err!=nil){
-        fmt.Println(err.Error())
-    }    
-
-
-    fmt.Println("Done!")
+    
 }
