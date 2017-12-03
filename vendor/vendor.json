@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "zKDmGyNRpAeeTGXwzKEvy+UY/QQ=",
+			"path": "github.com/mattn/go-sqlite3",
+			"revision": "d5ffb5c0cca8778699a929b236766f4a7af674e8",
+			"revisionTime": "2017-11-22T00:24:37Z"
+		}
+	],
+	"rootPath": "github.com/xabarass/image-builder"
+}

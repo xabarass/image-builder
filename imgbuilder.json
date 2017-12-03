@@ -1,0 +1,5 @@
+{
+    "img_resize_script":"/home/milan/projects/scion/rpi-img-builder/resize_img.sh",
+    "img_build_script":"/home/milan/go/src/github.com/xabarass/image-builder/build.sh",
+    "log_dir":"logs"
+}

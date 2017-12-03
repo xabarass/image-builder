@@ -1,1 +1,7 @@
 image-builder
+
+/bin/*
+/logs/*
+
+/vendor/*/
+/vendor/.deps.stamp
