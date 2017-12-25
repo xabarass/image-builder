@@ -1,7 +1,7 @@
 package scionimagebuilder;
 
 import (
-"time"
+    "time"
     "fmt"
     "log"
     "os/exec"
@@ -38,11 +38,11 @@ func (ib *ScionImageBuilder)buildImage(job *buildJob)(error){
 
 func (ib *ScionImageBuilder) Run(stop <-chan bool)(error){
     
-    fmt.Println("Running SCION image builder1...")
+    fmt.Println("Running SCION image builder!...")
     
     go func(){
-        fmt.Println("Running SCION image builder...")
-        for{
+
+        LOOP: for{
             select{
             case job:=<-ib.buildJobs:
                 fmt.Printf("Got new build job for %s ", job.inputImage)
@@ -54,12 +54,12 @@ func (ib *ScionImageBuilder) Run(stop <-chan bool)(error){
                 }
                 job.result<-res
             case <-stop:
-                fmt.Println("Got request to shutdown!");
-                break;
+                log.Println("ImageBuilder >> Got request to shutdown!");
+                break LOOP;
             }    
         }
         
-        fmt.Println("Bye!");
+        log.Println("Exiting image builder thread!");
     }()
 
     return nil

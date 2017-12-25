@@ -13,4 +13,3 @@ type OriginalImage struct{
 
     ScionImages []ScionImage
 }
-

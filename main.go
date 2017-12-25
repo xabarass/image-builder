@@ -1,34 +1,39 @@
 package main;
 
-import(
-    "fmt"
-    "time"
+import (
+    "log"
+    "os"
+    "os/signal"
 
-    "github.com/xabarass/image-builder/lib/scionimagebuilder"
+    "github.com/xabarass/image-builder/lib/imagemanager"
+    "github.com/xabarass/image-builder/lib/utils"
 )
 
+func signalHandler(stopApplication chan<- bool){
+    stop := make(chan os.Signal, 1)
+    signal.Notify(stop, os.Interrupt)
 
-func main(){
-    fmt.Println("Starting image building service!")
+    <-stop
 
-    imageBuilder, err:= scionimagebuilder.Create("imgbuilder.json");
-    if err!=nil{
-        fmt.Println(err.Error())
-    }
+    log.Println("Got Ctrl + C, stopping!")
 
-    stop:=make(chan bool, 1)
-    imageBuilder.Run(stop)
-
-    result:=make(chan scionimagebuilder.ImageBuildResult, 1)
-    imageBuilder.StartBuildJob("/home/milan/Downloads/original_images/ubuntu-16.04.3-preinstalled-server-armhf+raspi2.img", "/tmp/raspberrypi2.img", result)
-
-    output:=<-result
-    if(output.Success){
-        fmt.Println("Exiting with success!")    
-    }else{
-        fmt.Println(output.Error.Error())
-    }
-
-    time.Sleep(500 * time.Millisecond)
-    stop<-true
+    stopApplication <- true
 }
+
+func main() {
+    utils.InitializeRandomSeed()
+
+    imgManager, err:=imagemanager.Create("imgconfig.json")
+    if(err!=nil){
+        log.Panic(err.Error())
+    }
+
+    imgMgrStop:=make(chan bool, 1)
+    go signalHandler(imgMgrStop)
+
+    err=imgManager.Run(imgMgrStop)
+    if(err!=nil){
+        log.Panic(err.Error())
+    }
+}
+

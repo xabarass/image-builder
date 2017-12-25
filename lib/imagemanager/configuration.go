@@ -5,6 +5,9 @@ import(
 )
 
 type Configuration struct {
-    Images []OriginalImage  `json:"images"`
+    Images []images.OriginalImage  `json:"images"`
     DBPath string           `json:"db_path"`
+    BuildConfigurationPath string  `json:"build_configuration"`
+
+    BuildOutputDirectory string     `json:"output_dir"`
 }

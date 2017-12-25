@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "bVayBU8lTVHNDai7umD17bwyws0=",
+			"path": "github.com/gorilla/mux",
+			"revision": "5ab525f4fb1678e197ae59401e9050fa0b6cb5fd",
+			"revisionTime": "2017-12-08T16:08:15Z"
+		},
+		{
 			"checksumSHA1": "zKDmGyNRpAeeTGXwzKEvy+UY/QQ=",
 			"path": "github.com/mattn/go-sqlite3",
 			"revision": "d5ffb5c0cca8778699a929b236766f4a7af674e8",
