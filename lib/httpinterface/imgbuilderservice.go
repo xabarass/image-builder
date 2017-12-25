@@ -7,6 +7,6 @@ type AvailableImage struct {
 
 type ImageBuilderService interface {
     GetAvailableImages()([]AvailableImage)
-    CreateBuildJob(jobId string, configPath string, imageName string)(error)
+    RunJob(job JobInfo)(error)
 }
 

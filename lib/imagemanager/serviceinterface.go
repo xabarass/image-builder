@@ -13,8 +13,8 @@ func (im *ImageManager)GetAvailableImages()([]httpinterface.AvailableImage){
     }
 }
 
-func (im *ImageManager)CreateBuildJob(jobId string, configPath string, imageName string)(error){
-    log.Printf("Starting build job for: %s at: %s", imageName, configPath)
+func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
+    log.Printf("Starting build job for: %s at: %s", job.ImageName, job.ConfigFile)
 
     return nil
 }

@@ -5,13 +5,27 @@ import (
     "log"
     "github.com/gorilla/mux"
     "encoding/json"
-    "os"
-    "path"
-    "io"
-    "strings"
 
-    "github.com/xabarass/image-builder/lib/utils"
 )
+
+type createImageResponse struct {
+    JobId string  `json:"id"`
+    Image string  `json:"image"`
+}
+
+type errorResponse struct {
+    Message string  `json:"message"`
+    ErrorCode int32   `json:"err_code"`
+}
+
+func sendError(w http.ResponseWriter, message string, errorCode int32){
+    resp:=errorResponse{
+        Message:message,
+        ErrorCode:errorCode,
+    }
+
+    json.NewEncoder(w).Encode(resp)
+}
 
 func TokenAuth(authTokens map[string]bool, h func(http.ResponseWriter, *http.Request)) (func(http.ResponseWriter, *http.Request)) {
     return func(w http.ResponseWriter, r *http.Request) {
@@ -21,15 +35,9 @@ func TokenAuth(authTokens map[string]bool, h func(http.ResponseWriter, *http.Req
             h(w, r)
         }else{
             log.Printf("Request not authenticated")
-            http.Error(w, "Not authenticated", 403)
+            sendError(w, "Not authenticated", 403)
         }
     }
-}
-
-type HttpInterface struct {
-    imgMgr ImageBuilderService
-    validTokens map[string]bool
-    rootDir string
 }
 
 func (i *HttpInterface)IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -39,35 +47,28 @@ func (i *HttpInterface)IndexHandler(w http.ResponseWriter, r *http.Request) {
 func (i *HttpInterface)CreateImageHandler(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     imageName:=vars["image_name"]
-
-    log.Printf("Create image request %s", imageName)
-
-    jobId:=utils.GenerateRandomString(64);
-
-    log.Printf("Creating destination dir")
-    destDir:=path.Join(i.rootDir, jobId)
-    os.MkdirAll(destDir, os.ModePerm);
-    confFileDest:=path.Join(destDir,"config.zip")
+    log.Printf("Create image request for %s", imageName)
 
     file, header, err := r.FormFile("config_file")
     if err != nil {
+        //TODO: Handle error!
         panic(err)
     }
     defer file.Close()
-    name := strings.Split(header.Filename, ".")
-    log.Printf("Uploading file name %s\n", name[0])
-    
-    dest, err := os.OpenFile(confFileDest, os.O_WRONLY|os.O_CREATE, 0666)
-    defer dest.Close()
-    io.Copy(dest, file)
 
-    err=i.imgMgr.CreateBuildJob(jobId, confFileDest, imageName) 
+    log.Printf("Uploading file name %s\n", header.Filename)
+    
+    jobId, err:= i.createNewJob(imageName, file)
     if(err!=nil){
-        log.Printf(err.Error())
-        w.Write([]byte(err.Error()))
-    }else{
-        w.Write([]byte("Done!\n"))       
+        sendError(w, err.Error(), 400)  //TODO: Fix error codes
     }
+
+    resp:=createImageResponse{
+        JobId:jobId,
+        Image:imageName,
+    }
+
+    json.NewEncoder(w).Encode(resp)
 }
 
 func (i *HttpInterface)GetImages(w http.ResponseWriter, r *http.Request) {
@@ -76,12 +77,7 @@ func (i *HttpInterface)GetImages(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(availableImages)
 }
 
-func createHandler(imgMgr ImageBuilderService, authorizedTokens map[string]bool, rootDir string)(*mux.Router){
-    hi:=&HttpInterface{
-        imgMgr:imgMgr,
-        rootDir:rootDir,
-    }
-
+func createHandler(hi *HttpInterface, authorizedTokens map[string]bool)(*mux.Router){
     r := mux.NewRouter()
     r.HandleFunc("/", hi.IndexHandler)
     r.HandleFunc("/create/{image_name}", TokenAuth(authorizedTokens, hi.CreateImageHandler)).Methods("POST")
