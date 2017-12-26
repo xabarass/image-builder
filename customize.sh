@@ -11,7 +11,7 @@ etc_dir=$3
 img_file=$4
 dest_dir=$5
 
-img_file="${img_file}1"
+#img_file="${img_file}1"
 
 echo "Copy gen folder"
 rm -rf  "${home_dir}/go/src/github.com/netsec-ethz/scion/gen"

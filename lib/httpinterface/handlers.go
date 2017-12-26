@@ -29,7 +29,10 @@ func sendError(w http.ResponseWriter, message string, errorCode int32){
 
 func TokenAuth(authTokens map[string]bool, h func(http.ResponseWriter, *http.Request)) (func(http.ResponseWriter, *http.Request)) {
     return func(w http.ResponseWriter, r *http.Request) {
-        token:=r.Header.Get("Auth")
+        r.ParseMultipartForm(0)
+        log.Println(r.Form)
+        token := r.PostFormValue("token")
+
         if _, ok := authTokens[token]; ok {
             log.Printf("Handling request")
             h(w, r)
@@ -105,10 +108,12 @@ func (i *HttpInterface)GetImages(w http.ResponseWriter, r *http.Request) {
 
 func createHandler(hi *HttpInterface, authorizedTokens map[string]bool)(*mux.Router){
     r := mux.NewRouter()
-    r.HandleFunc("/", hi.IndexHandler)
+    // r.HandleFunc("/", hi.IndexHandler)
     r.HandleFunc("/create/{image_name}", TokenAuth(authorizedTokens, hi.CreateImageHandler)).Methods("POST")
-    r.HandleFunc("/get-images", TokenAuth(authorizedTokens, hi.GetImages)).Methods("GET")
+    r.HandleFunc("/get-images", hi.GetImages).Methods("GET")
     r.HandleFunc("/download/{job_id}", hi.DownloadImage).Methods("GET")
+
+    r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./web/"))))
 
     return r
 }
