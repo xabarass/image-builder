@@ -85,8 +85,12 @@ func (i *HttpInterface)DownloadImage(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    log.Printf("Job id is valid, checking if job is finished")
+
     // TODO: Fix this mess, make normal responses
     if(finished){
+        log.Printf("Sending file %s ", imageFile)
+        w.Header().Set("Content-Disposition", "attachment; filename=scion.img.bz2")
         http.ServeFile(w, r, imageFile)
     }else{
         sendError(w, "File not ready", 404)

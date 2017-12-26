@@ -66,10 +66,12 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
     return jobId, nil
 }
 
-func (hi *HttpInterface)JobFinished(jobId string){
-    if job, ok:=hi.activeJobs[jobId]; ok{
-        job.timestamp=time.Now()
-        job.finished=true
+func (hi *HttpInterface)JobFinished(jobId string, createdFile string){
+    if _, ok:=hi.activeJobs[jobId]; ok{
+        log.Printf("Job has been marked as finished")
+        hi.activeJobs[jobId].timestamp=time.Now()
+        hi.activeJobs[jobId].finished=true
+        hi.activeJobs[jobId].CreatedImage=createdFile
     }else{
         log.Printf("Requested jobId doesn't exist...")
     }

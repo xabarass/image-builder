@@ -11,5 +11,5 @@ type ImageBuilderService interface {
 }
 
 type JobRequester interface {
-    JobFinished(jobId string)
+    JobFinished(jobId string, file string)
 }
