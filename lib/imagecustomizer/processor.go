@@ -26,7 +26,7 @@ func customizeImage(readyImage *images.ScionImage, job httpinterface.JobInfo, fi
         log.Printf("There was an error customizing image!")
     }
 
-    jobRequester.JobFinished(job.JobId, path.Join(job.DestDir, "scion.img1.bz2"))
+    jobRequester.JobFinished(job.JobId, path.Join(job.DestDir, "scion.img.bz2"))
 
     finishedImage<-readyImage
 }

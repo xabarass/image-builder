@@ -174,9 +174,9 @@ func (im *ImageManager)prepareImage(img *images.OriginalImage, readyImage chan<-
 }
 
 func (im *ImageManager)mountScionImage(scimg *images.ScionImage) (error){
-    log.Printf("Mounting image %s", scimg.GetPathFor(images.ImgFile))
+    log.Printf("Mounting image %s for user: %s", scimg.GetPathFor(images.ImgFile), os.Getenv("USER"))
     cmd := exec.Command("sudo", im.mountScript, scimg.GetPathFor(images.ImgFile), 
-        scimg.GetPathFor(images.Root), scimg.GetPathFor(images.Home), scimg.GetPathFor(images.Etc), "milan")   //TODO: Replace milan with env variable
+        scimg.GetPathFor(images.Root), scimg.GetPathFor(images.Home), scimg.GetPathFor(images.Etc), os.Getenv("USER"))
 
     cmd.Run()
 
