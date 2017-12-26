@@ -53,6 +53,8 @@ func (i *HttpInterface)CreateImageHandler(w http.ResponseWriter, r *http.Request
     if err != nil {
         //TODO: Handle error!
         panic(err)
+
+        return
     }
     defer file.Close()
 
@@ -61,6 +63,7 @@ func (i *HttpInterface)CreateImageHandler(w http.ResponseWriter, r *http.Request
     jobId, err:= i.createNewJob(imageName, file)
     if(err!=nil){
         sendError(w, err.Error(), 400)  //TODO: Fix error codes
+        return
     }
 
     resp:=createImageResponse{
@@ -69,6 +72,25 @@ func (i *HttpInterface)CreateImageHandler(w http.ResponseWriter, r *http.Request
     }
 
     json.NewEncoder(w).Encode(resp)
+}
+
+func (i *HttpInterface)DownloadImage(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    jobId:=vars["job_id"]
+    log.Printf("Trying to download image from job %s", jobId)
+
+    finished, imageFile, err:=i.getImageForJob(jobId)
+    if(err!=nil){
+        sendError(w, err.Error(), 400)
+        return
+    }
+
+    // TODO: Fix this mess, make normal responses
+    if(finished){
+        http.ServeFile(w, r, imageFile)
+    }else{
+        sendError(w, "File not ready", 404)
+    }
 }
 
 func (i *HttpInterface)GetImages(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +103,8 @@ func createHandler(hi *HttpInterface, authorizedTokens map[string]bool)(*mux.Rou
     r := mux.NewRouter()
     r.HandleFunc("/", hi.IndexHandler)
     r.HandleFunc("/create/{image_name}", TokenAuth(authorizedTokens, hi.CreateImageHandler)).Methods("POST")
-    r.HandleFunc("/get-images/", TokenAuth(authorizedTokens, hi.GetImages)).Methods("GET")
+    r.HandleFunc("/get-images", TokenAuth(authorizedTokens, hi.GetImages)).Methods("GET")
+    r.HandleFunc("/download/{job_id}", hi.DownloadImage).Methods("GET")
 
     return r
 }

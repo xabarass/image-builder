@@ -10,3 +10,6 @@ type ImageBuilderService interface {
     RunJob(job JobInfo)(error)
 }
 
+type JobRequester interface {
+    JobFinished(jobId string)
+}

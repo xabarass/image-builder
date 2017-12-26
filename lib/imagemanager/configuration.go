@@ -6,8 +6,11 @@ import(
 
 type Configuration struct {
     Images []images.OriginalImage  `json:"images"`
-    DBPath string           `json:"db_path"`
+    DBPath string                   `json:"db_path"`
     BuildConfigurationPath string  `json:"build_configuration"`
 
     BuildOutputDirectory string     `json:"output_dir"`
+
+    MountScript string              `json:"mount_script"`
+    UmountScript string             `json:"umount_script"`
 }

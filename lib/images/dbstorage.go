@@ -24,10 +24,7 @@ func Open(dbPath string)(*ScionImageStorage, error){
     createStmt:=`
         CREATE TABLE IF NOT EXISTS scion_images (id INTEGER PRIMARY KEY,
                                                  version TEXT DEFAULT '', 
-                                                 path TEXT DEFAULT '',
-                                                 etcPath TEXT DEFAULT '',
-                                                 homePath TEXT DEFAULT '',
-                                                 mounted INTEGER DEFAULT 0,
+                                                 imgDir TEXT DEFAULT '',
                                                  fromImage TEXT DEFAULT '',
                                                  ready INTEGER DEFAULT 0
                                                 );
@@ -39,7 +36,7 @@ func Open(dbPath string)(*ScionImageStorage, error){
     }
 
     log.Println("Creating prepared statements...")
-    inserStmt:="INSERT INTO scion_images (fromImage) VALUES (?)"
+    inserStmt:="INSERT INTO scion_images (fromImage, imgDir) VALUES (?, ?)"
     preparedInsert, err:=db.Prepare(inserStmt)
     if(err != nil){
         return nil, err   
@@ -55,31 +52,35 @@ func (st *ScionImageStorage)Close(){
     st.db.Close()
 }
 
-func (st *ScionImageStorage)LoadScionImages(name string)([]ScionImage, error){
-    rows, err := st.db.Query("SELECT id, version, path, etcPath, homePath, mounted FROM scion_images WHERE fromImage=? AND ready=1", name)
+func (st *ScionImageStorage)LoadReadyScionImages(name string)([]*ScionImage, error){
+    log.Printf("Loading ready SCION images for %s", name)
+    rows, err := st.db.Query("SELECT id, version, imgDir, fromImage FROM scion_images WHERE fromImage=? AND ready=1", name)
     if err != nil {
         return nil, err
     }
     defer rows.Close()
 
-    resultImages:=make([]ScionImage, 10);
+    resultImages:=make([]*ScionImage,0);
 
     for rows.Next() {
         var si ScionImage
 
-        err = rows.Scan(&si.id, &si.Version, &si.Path, &si.MountPoints[Etc], &si.MountPoints[Home], &si.Mounted)
+        err = rows.Scan(&si.id, &si.Version, &si.imgDir, &si.ImageName)
         if err != nil {
             return nil, err
         }
+        si.storage=st
+        si.initializePaths()
 
-        resultImages=append(resultImages, si)
+        resultImages=append(resultImages, &si)
+        log.Printf("We have new image with id %d", si.id)
     }
 
     return resultImages, nil
 }
 
-func (st *ScionImageStorage)CreateScionImage(fromImage string)(*ScionImage, error){
-    result, err := st.preparedInsert.Exec(fromImage)
+func (st *ScionImageStorage)CreateScionImage(fromImage, imgDir string)(*ScionImage, error){
+    result, err := st.preparedInsert.Exec(fromImage, imgDir)
     if err != nil {
         log.Printf("Error creating new scion image record")
         return nil, err
@@ -89,12 +90,16 @@ func (st *ScionImageStorage)CreateScionImage(fromImage string)(*ScionImage, erro
     if err != nil {
         return nil, err
     }
-
-    return &ScionImage{
+    si:= &ScionImage{
         id:lastID,
-        Mounted:false,
         Used:false,
         storage:st,
-    }, nil
+        imgDir:imgDir,
+        ready:false,
+        ImageName:fromImage,
+    }
+    si.initializePaths()
+
+    return si, nil
 }
 

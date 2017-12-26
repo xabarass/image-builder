@@ -11,5 +11,5 @@ type OriginalImage struct{
     // This name should be unique across all images, identifier
     Name string `json:"name"`
 
-    ScionImages []ScionImage
+    ScionImages []*ScionImage
 }

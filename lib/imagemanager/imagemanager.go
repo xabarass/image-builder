@@ -6,19 +6,25 @@ import(
     "path"
     "encoding/json"
     "fmt"
-    // "os/exec"
+    "os/exec"
 
     "github.com/xabarass/image-builder/lib/images"
     "github.com/xabarass/image-builder/lib/scionimagebuilder"
     "github.com/xabarass/image-builder/lib/httpinterface"
+    "github.com/xabarass/image-builder/lib/imagecustomizer"
 )
 
 type ImageManager struct{
     db *images.ScionImageStorage
     images []images.OriginalImage
     imageBuilder *scionimagebuilder.ScionImageBuilder
+    imageCustomizer *imagecustomizer.ImageCustomizer
+    httpInterface *httpinterface.HttpInterface
 
     outputDir string
+
+    mountScript string
+    umountScript string
 }
 
 func Create(configFilePath string)(*ImageManager, error){
@@ -42,20 +48,31 @@ func Create(configFilePath string)(*ImageManager, error){
     imgMgr:=ImageManager{
         db:imgStore,
         images:config.Images,
-        outputDir:config.BuildOutputDirectory, 
+        outputDir:config.BuildOutputDirectory,
+
+        mountScript: config.MountScript,
+        umountScript: config.UmountScript,
     }
 
     log.Println("Loading image information")
-    for _, img := range imgMgr.images{
+    for i:=0; i<len(imgMgr.images);i++{
+        img:=&imgMgr.images[i]
         log.Printf("\t%s", img.Name)
-        img.ScionImages, err=imgStore.LoadScionImages(img.Name)
+        img.ScionImages, err=imgStore.LoadReadyScionImages(img.Name)
+        log.Printf("Loaded %d scion images for %s ", len(img.ScionImages), img.Name)
     }
+
+    //TODO: Remove failed scion images from directory
 
     log.Printf("Creating SCION image builder from configuration %s", config.BuildConfigurationPath)
     imgMgr.imageBuilder, err=scionimagebuilder.Create(config.BuildConfigurationPath)
     if err != nil {
         return nil, err
     }
+
+    imgMgr.httpInterface = httpinterface.CreateHttpServer(":8080", &imgMgr, map[string]bool{"milan":true}, "/tmp/downloadable_images")
+
+    imgMgr.imageCustomizer=imagecustomizer.Create(imgMgr.httpInterface)
 
     log.Println("Created Image Manager!")
     return &imgMgr, err
@@ -70,21 +87,30 @@ func (im *ImageManager) Run(stop <-chan bool)(error){
 
     //TODO: Create image customizer
 
-    srv := httpinterface.CreateHttpServer(":8080", im, map[string]bool{"milan":true}, "/tmp/downloadable_images")
-    // readyImages:=make(chan images.ScionImage, len(im.images))
+    im.httpInterface.StartServer()
+    readyImages:=make(chan *images.ScionImage, len(im.images))
 
-    // for _, img := range im.images{
-    //     go im.prepareImage(&img, readyImages)
-    // }
+    for _, img := range im.images{
+        log.Printf("Starting to prepare image %s with %d scion images\n",img.Name, len(img.ScionImages))
+        go im.prepareImage(&img, readyImages)
+    }
+
+    im.imageCustomizer.Run()
     
     LOOP: for{
         log.Printf("Starting to wait for requests")
         select{
            
+        case readyImage:= <-readyImages:
+            log.Printf("Received notification that image: %d is ready", readyImage.GetId())
+            readyImage.SetMounted(true)
+            readyImage.Used=false
+            im.imageCustomizer.ScionImageReady(readyImage.ImageName, readyImage)
         case <-stop:
             log.Println("ImageManager >> Got request to shutdown!");
             imgBuildStop<-true
-            srv.Shutdown(nil)
+            im.httpInterface.StopServer()
+            im.imageCustomizer.Stop()
             break LOOP;
         } 
     }
@@ -93,16 +119,18 @@ func (im *ImageManager) Run(stop <-chan bool)(error){
     return nil
 }
 
-func (im *ImageManager)prepareImage(img *images.OriginalImage, readyImage chan<- images.ScionImage){
+func (im *ImageManager)prepareImage(img *images.OriginalImage, readyImage chan<- *images.ScionImage){
     log.Printf("Starting to prepare image: %s", img.Name)
 
-    var scimg images.ScionImage;
+    var scimg *images.ScionImage;
     var destDirectory string
 
     if(len(img.ScionImages)==0){
+        log.Panic("This part is not implemented fully!")    //TODO: Implement this, there is a problem need to investigate
+
         log.Printf("There are no generated SCION images for %s, starting build!", img.Name)
 
-        scimg, err:=im.db.CreateScionImage(img.Name)
+        scimg, err:=im.db.CreateScionImage(img.Name, im.outputDir)
         if(err!=nil){
             return
         }    
@@ -110,7 +138,7 @@ func (im *ImageManager)prepareImage(img *images.OriginalImage, readyImage chan<-
         destDirectory=path.Join(im.outputDir, fmt.Sprintf("img-%d",scimg.GetId()))
         log.Printf("Creating output directory at %s \n",destDirectory)
 
-        err=os.MkdirAll(destDirectory, 0777)
+        err=os.MkdirAll(destDirectory, 0777)    //TODO: Fix permissions
         if(err!=nil){
             log.Panic(err.Error())
         }
@@ -135,26 +163,22 @@ func (im *ImageManager)prepareImage(img *images.OriginalImage, readyImage chan<-
 
         //TODO: For now we assume there is only one SCION image, later we will extend
         scimg=img.ScionImages[0]
-        destDirectory=path.Join(im.outputDir, fmt.Sprintf("img-%d",scimg.GetId()))
     }
 
-    // etcDir:=path.Join(destDirectory, "etc");
-    // homeDir:=path.Join(destDirectory, "home");
-
-    // if(exec.Command("mountpoint", etcDir).Run()!=0){
-    //     //We need to mount this
-    //     log.Printf("etc is not mounted! Mounting it")
-    // }
-
-    // if(exec.Command("mountpoint", homeDir).Run()!=0){
-    //     //We need to mount this
-    //     log.Printf("home is not mounted! Mounting it")
-    // }
-    
-    // err=scimg.Ready("1.0", outputFile, etcDir, homeDir)
-    // if err!=nil{
-    //     log.Printf("Error making scion image ready!")
-    // }
+    err:=im.mountScionImage(scimg)
+    if(err!=nil){
+        log.Printf("Error mounting scion image! %s", err.Error())
+    }
 
     readyImage<-scimg;
+}
+
+func (im *ImageManager)mountScionImage(scimg *images.ScionImage) (error){
+    log.Printf("Mounting image %s", scimg.GetPathFor(images.ImgFile))
+    cmd := exec.Command("sudo", im.mountScript, scimg.GetPathFor(images.ImgFile), 
+        scimg.GetPathFor(images.Root), scimg.GetPathFor(images.Home), scimg.GetPathFor(images.Etc), "milan")   //TODO: Replace milan with env variable
+
+    cmd.Run()
+
+    return nil
 }
