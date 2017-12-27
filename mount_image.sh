@@ -56,6 +56,7 @@ mount "$loop_dev_name" "$root_dir"
 # Mount 
 echo "Mounting bindfs partitions"
 sudo bindfs "--map=root/${regular_user}:@root/@${regular_user}" "${root_dir}/etc" "$etc_dir"
-sudo bindfs "--map=scion/${regular_user}:@scion/@${regular_user}" "${root_dir}/home/scion" "$home_dir"
+old_user=$(ls -ld "${root_dir}/home/scion" | awk '{print $3}')
+sudo bindfs "--map=${old_user}/${regular_user}:@${old_user}/@${regular_user}" "${root_dir}/home/scion" "$home_dir"
 
 echo "done"
