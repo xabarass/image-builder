@@ -10,7 +10,7 @@ func isExpired(job *JobInfo)(bool){
     if(job.finished){
         duration := time.Since(job.timestamp)
         // More then 10 minutes
-        if(duration.Minutes()>2){
+        if(duration.Minutes()>10){
             return true;
         }
     }
