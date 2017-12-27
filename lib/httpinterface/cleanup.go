@@ -21,7 +21,6 @@ func isExpired(job *JobInfo)(bool){
 func (hi *HttpInterface)startCleanupService(){
     go func(){
         LOOP: for{
-            log.Printf("Cleanup service: Starting to wait for requests")
             select{
             
             case <-time.After(time.Minute):
@@ -34,7 +33,6 @@ func (hi *HttpInterface)startCleanupService(){
                     }
                 }
 
-                log.Printf("Starting to remove unused jobs!")
                 for _,k:=range itemsToDelete{
                     if(os.RemoveAll(hi.activeJobs[k].DestDir)==nil){
                         delete(hi.activeJobs, k)    
