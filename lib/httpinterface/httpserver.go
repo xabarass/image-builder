@@ -29,6 +29,8 @@ type HttpInterface struct {
 
     activeJobs map[string]*JobInfo
 
+    stop chan bool
+
     server *http.Server
 }
 
@@ -90,6 +92,12 @@ func CreateHttpServer(bindAddress string, imgMgr ImageBuilderService, authorized
         imgMgr:imgMgr,
         rootDir:rootDir,
         activeJobs:make(map[string]*JobInfo),
+        stop:make(chan bool, 1),
+    }
+
+    err:=os.RemoveAll(rootDir)
+    if(err!=nil){
+        log.Println(err)
     }
 
     srv := &http.Server{
@@ -103,6 +111,7 @@ func CreateHttpServer(bindAddress string, imgMgr ImageBuilderService, authorized
 }
 
 func (hi *HttpInterface)StartServer(){
+    hi.startCleanupService()
     go func() {
         if err := hi.server.ListenAndServe(); err != nil {
             log.Printf("Httpserver: ListenAndServe() error: %s", err)
@@ -112,4 +121,5 @@ func (hi *HttpInterface)StartServer(){
 
 func (hi *HttpInterface)StopServer(){
     hi.server.Shutdown(nil)
+    hi.stopCleanupService()
 }

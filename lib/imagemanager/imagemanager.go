@@ -69,7 +69,8 @@ func Create(configFilePath string)(*ImageManager, error){
     if err != nil {
         return nil, err
     }
-
+    
+    //TODO: Fix this mess
     imgMgr.httpInterface = httpinterface.CreateHttpServer(":8080", &imgMgr, map[string]bool{"milan":true}, "/tmp/downloadable_images")
 
     imgMgr.imageCustomizer=imagecustomizer.Create(imgMgr.httpInterface)
