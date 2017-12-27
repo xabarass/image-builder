@@ -5,12 +5,47 @@
     <title>Scion start page</title>
 </head>
 <body>
-    <h1>Scion image generation software</h1>
+    <h1>Scion image generation page [BETA]</h1>
 
-    <form action="/create/raspi2" method="post" enctype="multipart/form-data">
+    <h3>Select device</h3>
+    <select id="dropdown">
+
+    </select>
+
+    <h3>Add configuration</h3>
+
+    <form id="config_form" method="post" enctype="multipart/form-data">
         Token:<input type="text" name="token">
         Config file:<input type="file" name="config_file">
-        <input type="submit" value="Start build job">
+        <input id="submit_button" type="submit" value="Start build job">
     </form>
+
+    <script type="text/javascript">
+    var images=[]
+
+        $( document ).ready(function() {
+            console.log( "Loaded!" );
+
+            $.get( "/get-images", function( data ) {
+                images=JSON.parse(data)
+
+                var $dropdown = $("#dropdown");
+                $.each(images, function(i, image) {
+                    console.log(image)
+                    $dropdown.append($("<option />").val(image.device).text(image.name));
+                });
+            });
+        });
+
+        $('#submit_button').click(function() {
+            var selectedDevice = $("#dropdown option:selected").val();
+
+            $("#config_form").attr("action", "/create/" + selectedDevice);
+            $('#config_form').submit();
+        });
+
+
+    </script>
+
 </body>
 </html>

@@ -92,7 +92,7 @@ func (im *ImageManager) Run(stop <-chan bool)(error){
 
     for _, img := range im.images{
         log.Printf("Starting to prepare image %s with %d scion images\n",img.Name, len(img.ScionImages))
-        go im.prepareImage(&img, readyImages)
+        go im.prepareImage(img, readyImages)
     }
 
     im.imageCustomizer.Run()
@@ -119,7 +119,7 @@ func (im *ImageManager) Run(stop <-chan bool)(error){
     return nil
 }
 
-func (im *ImageManager)prepareImage(img *images.OriginalImage, readyImage chan<- *images.ScionImage){
+func (im *ImageManager)prepareImage(img images.OriginalImage, readyImage chan<- *images.ScionImage){
     log.Printf("Starting to prepare image: %s", img.Name)
 
     var scimg *images.ScionImage;
