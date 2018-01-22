@@ -5,18 +5,7 @@ import (
     "log"
     "github.com/gorilla/mux"
     "encoding/json"
-
 )
-
-type createImageResponse struct {
-    JobId string  `json:"id"`
-    Image string  `json:"image"`
-}
-
-type errorResponse struct {
-    Message string  `json:"message"`
-    ErrorCode int32   `json:"err_code"`
-}
 
 func sendError(w http.ResponseWriter, message string, errorCode int32){
     resp:=errorResponse{
@@ -54,9 +43,7 @@ func (i *HttpInterface)CreateImageHandler(w http.ResponseWriter, r *http.Request
 
     file, header, err := r.FormFile("config_file")
     if err != nil {
-        //TODO: Handle error!
-        panic(err)
-
+        sendError(w, err.Error(), 400)
         return
     }
     defer file.Close()
@@ -108,7 +95,7 @@ func (i *HttpInterface)GetImages(w http.ResponseWriter, r *http.Request) {
 
 func createHandler(hi *HttpInterface, authorizedTokens map[string]bool)(*mux.Router){
     r := mux.NewRouter()
-    // r.HandleFunc("/", hi.IndexHandler)
+
     r.HandleFunc("/create/{image_name}", TokenAuth(authorizedTokens, hi.CreateImageHandler)).Methods("POST")
     r.HandleFunc("/get-images", hi.GetImages).Methods("GET")
     r.HandleFunc("/download/{job_id}", hi.DownloadImage).Methods("GET")

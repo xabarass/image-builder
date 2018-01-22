@@ -12,6 +12,11 @@
 
     </select>
 
+    <h4>Image description:</h4>
+    <p id="description"/>
+
+    <br/>
+
     <h3>Add configuration</h3>
 
     <form id="config_form" method="post" enctype="multipart/form-data">
@@ -23,17 +28,26 @@
     <script type="text/javascript">
     var images=[]
 
+    var descriptions={
+
+    }
+
         $( document ).ready(function() {
             console.log( "Loaded!" );
 
-            $.get( "/get-images", function( data ) {
+            $.get("/get-images", function( data ) {
                 images=JSON.parse(data)
 
                 var $dropdown = $("#dropdown");
                 $.each(images, function(i, image) {
                     console.log(image)
-                    $dropdown.append($("<option />").val(image.device).text(image.name));
+                    descriptions[image.name]=image.description
+                    $dropdown.append($("<option />").val(image.name).text(image.display_name));
                 });
+
+                var img = $("#dropdown option:selected").val();
+            $("#description").text(descriptions[img])
+                $("#description").text(descriptions[img])
             });
         });
 
@@ -42,6 +56,11 @@
 
             $("#config_form").attr("action", "/create/" + selectedDevice);
             $('#config_form').submit();
+        });
+
+        $("#dropdown").change(function(){
+            var img = $("#dropdown option:selected").val();
+            $("#description").text(descriptions[img])
         });
 
 

@@ -8,6 +8,7 @@ import(
     "os"
 
     "github.com/xabarass/image-builder/lib/httpinterface"
+    "github.com/xabarass/image-builder/lib/images"
 
     "github.com/mholt/archiver"
 )
@@ -16,26 +17,36 @@ func (im *ImageManager)GetAvailableImages()([]httpinterface.AvailableImage){
     var result []httpinterface.AvailableImage
 
     for _, img := range im.images{
-        if(len(img.ScionImages)>0 && img.ScionImages[0].IsMounted()){
-            result=append(result, httpinterface.AvailableImage{Device:img.Name, Name:img.Name})
+        if(img.IsMounted()){
+            result=append(result, httpinterface.AvailableImage{ Name:img.Name, 
+                                                                DisplayName:img.DisplayName, 
+                                                                Description:img.Description, 
+                                                                Version:img.Version,
+                                                              })
         }
     }
-    
+
     return result
 }
 
-func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
-    log.Printf("Starting build job for: %s at: %s", job.ImageName, job.ConfigFile)
+func (im *ImageManager)RunJob(imageName, configFile, destDir, jobId string)(error){
+    log.Printf("Starting build job for: %s at: %s", imageName, configFile)
 
-    log.Printf("Extracting %s", job.ConfigFile)
-    err := archiver.TarGz.Open(job.ConfigFile, job.DestDir)
+    var scionImg *images.ScionImage
+    if img, ok := im.images[imageName]; ok {
+        scionImg=img
+    }else{
+        return fmt.Errorf("Unknown image name: %s", imageName)
+    }
+
+    err := archiver.TarGz.Open(configFile, destDir)
     if(err!=nil){
         return err
     }
 
     log.Printf("Decompress finished")
 
-    files, err := ioutil.ReadDir(job.DestDir)
+    files, err := ioutil.ReadDir(destDir)
     if err != nil {
         return err
     }
@@ -46,7 +57,7 @@ func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
 
     var userDirecory string
     for _, file := range files {
-        filePath:=path.Join(job.DestDir, file.Name())
+        filePath:=path.Join(destDir, file.Name())
         if info, _ := os.Stat(filePath); info.Mode().IsDir(){
             userDirecory=filePath
         }
@@ -58,8 +69,7 @@ func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
     }
 
     if info, _ := os.Stat(path.Join(userDirecory, "gen")); info.Mode().IsDir(){
-        job.ConfigFile=userDirecory //FIXME: Implement better way
-        im.imageCustomizer.AddJob(job)
+        im.imageCustomizer.CustomizeImage(scionImg, userDirecory, destDir, jobId)
     }else{
         return fmt.Errorf("Missing gen directory")
     }
