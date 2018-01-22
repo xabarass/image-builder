@@ -20,8 +20,8 @@ func isExpired(job *jobInfo)(bool){
     return false
 }
 
+// TODO: Make thread safe!
 // Periodically checks for old jobs and removes them
-
 func (hi *HttpInterface)startCleanupService(){
     go func(){
         LOOP: for{
