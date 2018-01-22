@@ -6,17 +6,21 @@ import(
     "os"
 )
 
-func isExpired(job *JobInfo)(bool){
+// Image is valid 10 minutes
+const IMAGE_VALIDITY_MINUTES float64 = 10
+
+func isExpired(job *jobInfo)(bool){
     if(job.finished){
         duration := time.Since(job.timestamp)
-        // More then 10 minutes
-        if(duration.Minutes()>10){
+        if(duration.Minutes()>IMAGE_VALIDITY_MINUTES){
             return true;
         }
     }
 
     return false
 }
+
+// Periodically checks for old jobs and removes them
 
 func (hi *HttpInterface)startCleanupService(){
     go func(){

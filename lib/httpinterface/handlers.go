@@ -7,16 +7,6 @@ import (
     "encoding/json"
 )
 
-type createImageResponse struct {
-    JobId string  `json:"id"`
-    Image string  `json:"image"`
-}
-
-type errorResponse struct {
-    Message string  `json:"message"`
-    ErrorCode int32   `json:"err_code"`
-}
-
 func sendError(w http.ResponseWriter, message string, errorCode int32){
     resp:=errorResponse{
         Message:message,

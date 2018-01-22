@@ -1,7 +1,6 @@
 package httpinterface
 
 import (
-    "net/http"
     "log"
     "time"
     "path"
@@ -13,7 +12,7 @@ import (
     "github.com/xabarass/image-builder/lib/utils"
 )
 
-type JobInfo struct {
+type jobInfo struct {
     JobId string
     DestDir string
     ConfigFile string
@@ -21,17 +20,6 @@ type JobInfo struct {
     CreatedImage string
     timestamp time.Time
     finished bool
-}
-
-type HttpInterface struct {
-    imgMgr ImageBuilderService
-    rootDir string
-
-    activeJobs map[string]*JobInfo
-
-    stop chan bool
-
-    server *http.Server
 }
 
 func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File)(string, error){
@@ -47,7 +35,7 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
     defer dest.Close()
     io.Copy(dest, configFile)
 
-    newBuildJob:=JobInfo{
+    newBuildJob:=jobInfo{
         JobId:jobId,
         DestDir:destDir,
         ConfigFile:confFileDest,
@@ -56,12 +44,12 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
         finished:false,
     }
 
-    hi.activeJobs[jobId]=&newBuildJob
-    err = hi.imgMgr.RunJob(newBuildJob)
+    hi.addJob(&newBuildJob)
+    err = hi.imgMgr.RunJob(imageName, confFileDest, destDir, jobId)
     if(err!=nil){
         log.Printf("Error starting build job")
         //TODO: Cleanup (delete directory and uploaded files)
-        delete(hi.activeJobs, jobId)
+        hi.removeJob(jobId)
         return jobId, err
     }
 
@@ -70,57 +58,20 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
 
 func (hi *HttpInterface)JobFinished(jobId string, createdFile string){
     log.Printf("Marking job %s as finished", jobId)
-    if _, ok:=hi.activeJobs[jobId]; ok{
+    if job, ok := hi.getJob(jobId); ok{
         log.Printf("Job has been marked as finished, file is: %s", createdFile)
-        hi.activeJobs[jobId].timestamp=time.Now()
-        hi.activeJobs[jobId].finished=true
-        hi.activeJobs[jobId].CreatedImage=createdFile
+        job.timestamp=time.Now()
+        job.finished=true
+        job.CreatedImage=createdFile
     }else{
         log.Printf("Requested jobId doesn't exist...")
     }
 }
 
 func (hi *HttpInterface)getImageForJob(jobId string)(bool, string, error){
-    if job, ok:=hi.activeJobs[jobId]; ok{
+    if job, ok := hi.getJob(jobId); ok{
         return job.finished, job.CreatedImage, nil
     }else{
         return false, "", fmt.Errorf("Provided ID doesn't match any active job")
     }
-}
-
-func CreateHttpServer(bindAddress string, imgMgr ImageBuilderService, authorizedTokens map[string]bool, rootDir string) *HttpInterface {
-    hi:=&HttpInterface{
-        imgMgr:imgMgr,
-        rootDir:rootDir,
-        activeJobs:make(map[string]*JobInfo),
-        stop:make(chan bool, 1),
-    }
-
-    err:=os.RemoveAll(rootDir)
-    if(err!=nil){
-        log.Println(err)
-    }
-
-    srv := &http.Server{
-        Addr: bindAddress, 
-        Handler: createHandler(hi, authorizedTokens),
-    }
-
-    hi.server=srv
-
-    return hi
-}
-
-func (hi *HttpInterface)StartServer(){
-    hi.startCleanupService()
-    go func() {
-        if err := hi.server.ListenAndServe(); err != nil {
-            log.Printf("Httpserver: ListenAndServe() error: %s", err)
-        }
-    }()
-}
-
-func (hi *HttpInterface)StopServer(){
-    hi.server.Shutdown(nil)
-    hi.stopCleanupService()
 }
