@@ -27,6 +27,6 @@ sync
 
 lbzip2 -zk --fast $img_file
 
-mv "${img_file}.bz2" "$dest_dir"
+mv "${img_file}.bz2" "${dest_dir}/scion.img.bz2"
 
 echo "Done"

@@ -58,7 +58,6 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
 
     hi.activeJobs[jobId]=&newBuildJob
     err = hi.imgMgr.RunJob(newBuildJob)
-
     if(err!=nil){
         //TODO: Cleanup (delete directory and uploaded files)
         delete(hi.activeJobs, jobId)

@@ -1,30 +1,29 @@
 package imagemanager;
 
 import(
-    "log"    
+    "log"
     "os"
-    "path"
     "encoding/json"
     "fmt"
     "os/exec"
 
     "github.com/xabarass/image-builder/lib/images"
-    "github.com/xabarass/image-builder/lib/scionimagebuilder"
     "github.com/xabarass/image-builder/lib/httpinterface"
     "github.com/xabarass/image-builder/lib/imagecustomizer"
 )
 
+type SyncFunc func()
+
 type ImageManager struct{
-    db *images.ScionImageStorage
-    images []images.OriginalImage
-    imageBuilder *scionimagebuilder.ScionImageBuilder
+    images map[string]*images.ScionImage
     imageCustomizer *imagecustomizer.ImageCustomizer
     httpInterface *httpinterface.HttpInterface
 
-    outputDir string
+    readyImages chan *images.ScionImage
+    syncFunctions chan SyncFunc
+    buildJobs chan *httpinterface.JobInfo
 
-    mountScript string
-    umountScript string
+    config Configuration
 }
 
 func Create(configFilePath string)(*ImageManager, error){
@@ -33,47 +32,27 @@ func Create(configFilePath string)(*ImageManager, error){
         return nil, err
     }
     defer configFile.Close()
+
+    var imgMgr ImageManager
+    imgMgr.images=make(map[string]*images.ScionImage)
+    imgMgr.readyImages=make(chan *images.ScionImage, 10)  //TODO: remove magic constant
+    imgMgr.syncFunctions=make(chan SyncFunc, 10)
     
     // Load configuration from file
-    var config Configuration
     jsonParser := json.NewDecoder(configFile)
-    jsonParser.Decode(&config)
+    jsonParser.Decode(&imgMgr.config)
 
-    log.Printf("Loaded configuration file, database path is: %s, loading image information", config.DBPath);
-    imgStore, err:=images.Open(config.DBPath)
-    if err != nil {
-        return nil, err
+    for _, img := range imgMgr.config.Images{
+        if _, exists := imgMgr.images[img.Name]; exists {
+            return nil, fmt.Errorf("Error! Image names are not unique!")
+        }
+
+        imgMgr.images[img.Name]=img
     }
-
-    imgMgr:=ImageManager{
-        db:imgStore,
-        images:config.Images,
-        outputDir:config.BuildOutputDirectory,
-
-        mountScript: config.MountScript,
-        umountScript: config.UmountScript,
-    }
-
-    log.Println("Loading image information")
-    for i:=0; i<len(imgMgr.images);i++{
-        img:=&imgMgr.images[i]
-        log.Printf("\t%s", img.Name)
-        img.ScionImages, err=imgStore.LoadReadyScionImages(img.Name)
-        log.Printf("Loaded %d scion images for %s ", len(img.ScionImages), img.Name)
-    }
-
-    //TODO: Remove failed scion images from directory
-
-    log.Printf("Creating SCION image builder from configuration %s", config.BuildConfigurationPath)
-    imgMgr.imageBuilder, err=scionimagebuilder.Create(config.BuildConfigurationPath)
-    if err != nil {
-        return nil, err
-    }
-    
-    //TODO: Fix this mess
-    imgMgr.httpInterface = httpinterface.CreateHttpServer(":8080", &imgMgr, map[string]bool{"milan":true}, "/tmp/downloadable_images")
-
-    imgMgr.imageCustomizer=imagecustomizer.Create(imgMgr.httpInterface)
+   
+    //TODO: Fix loading secret token
+    // imgMgr.httpInterface = httpinterface.CreateHttpServer(imgMgr.config.BindAddress, &imgMgr, map[string]bool{"milan":true}, imgMgr.config.OutputDirectory)
+    imgMgr.imageCustomizer=imagecustomizer.Create(imgMgr.config.CustomizeScript, &imgMgr)
 
     log.Println("Created Image Manager!")
     return &imgMgr, err
@@ -82,34 +61,36 @@ func Create(configFilePath string)(*ImageManager, error){
 func (im *ImageManager) Run(stop <-chan bool)(error){
     log.Println("Starting image manager...")
 
-    // Create image builder
-    imgBuildStop:=make(chan bool, 1)
-    go im.imageBuilder.Run(imgBuildStop)
+    // im.httpInterface.StartServer()
 
-    //TODO: Create image customizer
 
-    im.httpInterface.StartServer()
-    readyImages:=make(chan *images.ScionImage, len(im.images))
-
+    log.Printf("Mounting available images")
     for _, img := range im.images{
-        log.Printf("Starting to prepare image %s with %d scion images\n",img.Name, len(img.ScionImages))
-        go im.prepareImage(img, readyImages)
+        im.mountScionImage(img)
+        img.SetMounted(true)
     }
 
     im.imageCustomizer.Run()
     
+    imgToIdMap := make(map[string]string)
+
     LOOP: for{
         log.Printf("Starting to wait for requests")
         select{
            
-        case readyImage:= <-readyImages:
-            log.Printf("Received notification that image: %d is ready", readyImage.GetId())
-            readyImage.SetMounted(true)
-            readyImage.Used=false
-            im.imageCustomizer.ScionImageReady(readyImage.ImageName, readyImage)
+        case readyImage:= <-im.readyImages:
+            delete(imgToIdMap, readyImage.Name)           
+            readyImage.SetUsed(false)
+
+        // Execute all functions from worker thread, avoiding mutexes
+        case f := <-im.syncFunctions:
+            f()
+
+        case bj := <- im.buildJobs:
+
+
         case <-stop:
             log.Println("ImageManager >> Got request to shutdown!");
-            imgBuildStop<-true
             im.httpInterface.StopServer()
             im.imageCustomizer.Stop()
             break LOOP;
@@ -120,66 +101,25 @@ func (im *ImageManager) Run(stop <-chan bool)(error){
     return nil
 }
 
-func (im *ImageManager)prepareImage(img images.OriginalImage, readyImage chan<- *images.ScionImage){
-    log.Printf("Starting to prepare image: %s", img.Name)
-
-    var scimg *images.ScionImage;
-    var destDirectory string
-
-    if(len(img.ScionImages)==0){
-        log.Panic("This part is not implemented fully!")    //TODO: Implement this, there is a problem need to investigate
-
-        log.Printf("There are no generated SCION images for %s, starting build!", img.Name)
-
-        scimg, err:=im.db.CreateScionImage(img.Name, im.outputDir)
-        if(err!=nil){
-            return
-        }    
-
-        destDirectory=path.Join(im.outputDir, fmt.Sprintf("img-%d",scimg.GetId()))
-        log.Printf("Creating output directory at %s \n",destDirectory)
-
-        err=os.MkdirAll(destDirectory, 0777)    //TODO: Fix permissions
-        if(err!=nil){
-            log.Panic(err.Error())
-        }
-
-        outputFile:=path.Join(destDirectory, img.Name+".img");
-
-        resultChan:=make(chan scionimagebuilder.ImageBuildResult, 1)
-        err=im.imageBuilder.StartBuildJob(img.Path, outputFile, resultChan)
-        if err!=nil{
-            log.Panic(err.Error())   
-        }
-
-        res:=<-resultChan
-
-        if(!res.Success){
-            log.Printf("Error building image: %s, %s", img.Name, res.Error.Error())
-            //TODO: Send error message to main thread
-            return
-        }
-    }else{
-        log.Printf("There is stored record of the images %s, loading data", img.Name)
-
-        //TODO: For now we assume there is only one SCION image, later we will extend
-        scimg=img.ScionImages[0]
-    }
-
-    err:=im.mountScionImage(scimg)
-    if(err!=nil){
-        log.Printf("Error mounting scion image! %s", err.Error())
-    }
-
-    readyImage<-scimg;
-}
-
 func (im *ImageManager)mountScionImage(scimg *images.ScionImage) (error){
-    log.Printf("Mounting image %s for user: %s", scimg.GetPathFor(images.ImgFile), os.Getenv("USER"))
-    cmd := exec.Command("sudo", im.mountScript, scimg.GetPathFor(images.ImgFile), 
+    log.Printf("Mounting image %s for user: %s", scimg.File, os.Getenv("USER"))
+
+    cmd := exec.Command("sudo", im.config.MountScript, scimg.File, 
         scimg.GetPathFor(images.Root), scimg.GetPathFor(images.Home), scimg.GetPathFor(images.Etc), os.Getenv("USER"))
 
     cmd.Run()
 
     return nil
+}
+
+func (im *ImageManager)OnCustomizeJobSuccess(image *images.ScionImage, generatedFile string){
+    // TODO: Notify http module
+
+    im.readyImages<-image
+}
+
+func (im *ImageManager)OnCustomizeJobError(image *images.ScionImage, err error){
+    // TODO: Notify http module
+
+    im.readyImages<-image
 }

@@ -5,28 +5,26 @@ import(
     "os"
     "os/exec"
     "path"
+    "fmt"
 
     "github.com/xabarass/image-builder/lib/images"
-    "github.com/xabarass/image-builder/lib/httpinterface"
 )
 
-func customizeImage(readyImage *images.ScionImage, job httpinterface.JobInfo, finishedImage chan *images.ScionImage, jobRequester httpinterface.JobRequester){
-    log.Printf("Starting to customize image: %s for job id: %s", job.ImageName, job.JobId) 
+func (ic *ImageCustomizer)customizeImage(image *images.ScionImage, configDirectory string, outputDir string) (string, error){
+    log.Printf("Starting to customize image: %s", image.Name) 
 
-    cmd:=exec.Command("./customize.sh", job.ConfigFile, 
-        readyImage.GetPathFor(images.Home), readyImage.GetPathFor(images.Etc), 
-        readyImage.GetPathFor(images.ImgFile), job.DestDir)
+    cmd:=exec.Command(ic.customizeScript, configDirectory, 
+        image.GetPathFor(images.Home), image.GetPathFor(images.Etc), 
+        image.File, outputDir)
 
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
 
     if(cmd.Run()==nil){
         log.Printf("Success customizing image!")
+        return path.Join(outputDir, "scion.img.bz2"), nil
     }else{
         log.Printf("There was an error customizing image!")
+        return "", fmt.Errorf("Error while running customization script")
     }
-
-    jobRequester.JobFinished(job.JobId, path.Join(job.DestDir, "scion.img.bz2"))
-
-    finishedImage<-readyImage
 }

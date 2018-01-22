@@ -5,12 +5,12 @@ import(
 )
 
 type Configuration struct {
-    Images []images.OriginalImage  `json:"images"`
-    DBPath string                   `json:"db_path"`
-    BuildConfigurationPath string  `json:"build_configuration"`
-
-    BuildOutputDirectory string     `json:"output_dir"`
-
     MountScript string              `json:"mount_script"`
     UmountScript string             `json:"umount_script"`
+    CustomizeScript string          `json:"customize_script"`
+
+    Images []*images.ScionImage            `json:"available_images"`
+
+    BindAddress string              `json:"bind_address"`
+    OutputDirectory string          `json:"output_directory"`
 }

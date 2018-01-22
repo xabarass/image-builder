@@ -1,15 +1,13 @@
 package httpinterface
 
 type AvailableImage struct {
-    Device string   `json:"device"`
-    Name string     `json:"name"`
+    Name string             `json:"name"`
+    DisplayName string      `json:"display_name"`
+    Description string      `json:"description"`
+    Version string          `json:"version"`
 }
 
 type ImageBuilderService interface {
     GetAvailableImages()([]AvailableImage)
     RunJob(job JobInfo)(error)
-}
-
-type JobRequester interface {
-    JobFinished(jobId string, file string)
 }

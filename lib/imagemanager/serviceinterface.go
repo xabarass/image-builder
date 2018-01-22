@@ -13,21 +13,29 @@ import(
 )
 
 func (im *ImageManager)GetAvailableImages()([]httpinterface.AvailableImage){
-    var result []httpinterface.AvailableImage
+    output:=make(chan []httpinterface.AvailableImage, 0)
 
-    for _, img := range im.images{
-        if(len(img.ScionImages)>0 && img.ScionImages[0].IsMounted()){
-            result=append(result, httpinterface.AvailableImage{Device:img.Name, Name:img.Name})
+    im.syncFunctions<-func(){
+        var result []httpinterface.AvailableImage
+        for _, img := range im.images{
+            if(img.IsMounted()){
+                result=append(result, httpinterface.AvailableImage{ Name:img.Name, 
+                                                                    DisplayName:img.DisplayName, 
+                                                                    Description:img.Description, 
+                                                                    Version:img.Version,
+                                                                  })
+            }
         }
+
+        output<-result
     }
-    
-    return result
+
+    return <-output
 }
 
 func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
     log.Printf("Starting build job for: %s at: %s", job.ImageName, job.ConfigFile)
 
-    log.Printf("Extracting %s", job.ConfigFile)
     err := archiver.TarGz.Open(job.ConfigFile, job.DestDir)
     if(err!=nil){
         return err
@@ -58,11 +66,13 @@ func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
     }
 
     if info, _ := os.Stat(path.Join(userDirecory, "gen")); info.Mode().IsDir(){
-        job.ConfigFile=userDirecory //FIXME: Implement better way
-        im.imageCustomizer.AddJob(job)
+        job.ConfigFile=userDirecory     //FIXME: Implement better way
+        
+        // im.imageCustomizer.AddJob(job)
     }else{
         return fmt.Errorf("Missing gen directory")
     }
 
     return nil
+
 }
