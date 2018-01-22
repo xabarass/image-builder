@@ -42,8 +42,12 @@ func Create(configFilePath string)(*ImageManager, error){
         imgMgr.images[img.Name]=img
     }
    
-    //TODO: Fix loading secret token
-    imgMgr.httpInterface = httpinterface.CreateHttpServer(imgMgr.config.BindAddress, &imgMgr, map[string]bool{"milan":true}, imgMgr.config.OutputDirectory)
+    token := os.Getenv("ACCESS_TOKEN")
+    if(token==""){
+        return nil, fmt.Errorf("Env variable 'ACCESS_TOKEN' not specified!")
+    }
+
+    imgMgr.httpInterface = httpinterface.CreateHttpServer(imgMgr.config.BindAddress, &imgMgr, map[string]bool{token:true}, imgMgr.config.OutputDirectory)
     imgMgr.imageCustomizer=imagecustomizer.Create(imgMgr.config.CustomizeScript, &imgMgr)
 
     log.Println("Created Image Manager!")
@@ -84,7 +88,7 @@ func (im *ImageManager)mountScionImage(scimg *images.ScionImage) (error){
 }
 
 func (im *ImageManager)OnCustomizeJobSuccess(image *images.ScionImage, jobId string, generatedFile string){
-    log.Printf("Customization JOB finished! ")
+    log.Printf("Customization JOB finished!")
     im.httpInterface.JobFinished(jobId, generatedFile)
 }
 
