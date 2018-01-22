@@ -8,9 +8,11 @@ type customizeJob struct{
     image *images.ScionImage    
     configDirectory string
     destinationDir string
+
+    jobId string
 }
 
 type CustomizeJobRequester interface {
-    OnCustomizeJobSuccess(image *images.ScionImage, generatedFile string)
-    OnCustomizeJobError(image *images.ScionImage, err error)
+    OnCustomizeJobSuccess(image *images.ScionImage, jobId string, generatedFile string)
+    OnCustomizeJobError(image *images.ScionImage, jobId string, err error)
 }

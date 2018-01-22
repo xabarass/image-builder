@@ -59,6 +59,7 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
     hi.activeJobs[jobId]=&newBuildJob
     err = hi.imgMgr.RunJob(newBuildJob)
     if(err!=nil){
+        log.Printf("Error starting build job")
         //TODO: Cleanup (delete directory and uploaded files)
         delete(hi.activeJobs, jobId)
         return jobId, err
@@ -68,8 +69,9 @@ func (hi *HttpInterface)createNewJob(imageName string, configFile multipart.File
 }
 
 func (hi *HttpInterface)JobFinished(jobId string, createdFile string){
+    log.Printf("Marking job %s as finished", jobId)
     if _, ok:=hi.activeJobs[jobId]; ok{
-        log.Printf("Job has been marked as finished")
+        log.Printf("Job has been marked as finished, file is: %s", createdFile)
         hi.activeJobs[jobId].timestamp=time.Now()
         hi.activeJobs[jobId].finished=true
         hi.activeJobs[jobId].CreatedImage=createdFile

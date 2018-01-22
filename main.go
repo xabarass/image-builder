@@ -23,7 +23,7 @@ func signalHandler(stopApplication chan<- bool){
 func main() {
     utils.InitializeRandomSeed()
 
-    imgManager, err:=imagemanager.Create("imgconfig.json")
+    imgManager, err:=imagemanager.Create("config.json")
     if(err!=nil){
         log.Panic(err.Error())
     }

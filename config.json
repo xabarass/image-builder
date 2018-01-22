@@ -1,0 +1,17 @@
+{
+    "mount_script":"./mount_image.sh",
+    "umount_script":"./umount_image.sh",
+    "customize_script":"./customize.sh",
+    "available_images":[
+        {
+            "path":"/home/milan/projects/scion/rpi-img-builder/ubuntu-16.04-mate-odroid-xu4-20170731.img",
+            "mount_directory":"/home/milan/projects/scion/rpi-img-builder/",
+            "name":"odroid-xu4-mate",
+            "display_name":"Odroid XU4 Ubuntu Mate 16.04",
+            "description":"This image is generated from bla bla bla...",
+            "version":"1.0"
+        }
+    ],
+    "bind_address":"127.0.0.1:9999",
+    "output_directory":"/tmp/scion_images"    
+}

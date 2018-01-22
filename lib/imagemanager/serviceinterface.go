@@ -8,33 +8,36 @@ import(
     "os"
 
     "github.com/xabarass/image-builder/lib/httpinterface"
+    "github.com/xabarass/image-builder/lib/images"
 
     "github.com/mholt/archiver"
 )
 
 func (im *ImageManager)GetAvailableImages()([]httpinterface.AvailableImage){
-    output:=make(chan []httpinterface.AvailableImage, 0)
+    var result []httpinterface.AvailableImage
 
-    im.syncFunctions<-func(){
-        var result []httpinterface.AvailableImage
-        for _, img := range im.images{
-            if(img.IsMounted()){
-                result=append(result, httpinterface.AvailableImage{ Name:img.Name, 
-                                                                    DisplayName:img.DisplayName, 
-                                                                    Description:img.Description, 
-                                                                    Version:img.Version,
-                                                                  })
-            }
+    for _, img := range im.images{
+        if(img.IsMounted()){
+            result=append(result, httpinterface.AvailableImage{ Name:img.Name, 
+                                                                DisplayName:img.DisplayName, 
+                                                                Description:img.Description, 
+                                                                Version:img.Version,
+                                                              })
         }
-
-        output<-result
     }
 
-    return <-output
+    return result
 }
 
 func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
     log.Printf("Starting build job for: %s at: %s", job.ImageName, job.ConfigFile)
+
+    var scionImg *images.ScionImage
+    if img, ok := im.images[job.ImageName]; ok {
+        scionImg=img
+    }else{
+        return fmt.Errorf("Unknown image name: %s", job.ImageName)
+    }
 
     err := archiver.TarGz.Open(job.ConfigFile, job.DestDir)
     if(err!=nil){
@@ -66,13 +69,10 @@ func (im *ImageManager)RunJob(job httpinterface.JobInfo)(error){
     }
 
     if info, _ := os.Stat(path.Join(userDirecory, "gen")); info.Mode().IsDir(){
-        job.ConfigFile=userDirecory     //FIXME: Implement better way
-        
-        // im.imageCustomizer.AddJob(job)
+        im.imageCustomizer.CustomizeImage(scionImg, userDirecory, job.DestDir, job.JobId)
     }else{
         return fmt.Errorf("Missing gen directory")
     }
 
     return nil
-
 }

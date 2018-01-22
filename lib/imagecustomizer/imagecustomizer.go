@@ -6,11 +6,6 @@ import(
     "github.com/xabarass/image-builder/lib/images"
 )
 
-type newScionImage struct{
-    image *images.ScionImage    
-    name string
-}
-
 type ImageCustomizer struct{
     customizeScript string
     
@@ -34,9 +29,9 @@ func Create(customizeScript string, jobRequester CustomizeJobRequester)(*ImageCu
     return ic
 }
 
-func (ic *ImageCustomizer)CustomizeImage(image *images.ScionImage, configDirectory string, destinationDir string){
+func (ic *ImageCustomizer)CustomizeImage(image *images.ScionImage, configDirectory string, destinationDir string, jobId string){
     log.Printf("Creating new build job for %s", image.Name)
-    ic.jobQueue<-&customizeJob{image:image, configDirectory:configDirectory, destinationDir:destinationDir}
+    ic.jobQueue<-&customizeJob{image:image, configDirectory:configDirectory, destinationDir:destinationDir, jobId:jobId}
 }
 
 func (ic *ImageCustomizer)Run(){
@@ -48,10 +43,10 @@ func (ic *ImageCustomizer)Run(){
             case newJob:=<-ic.jobQueue:
                 log.Println("Got request to customize image");       
                 createdFile, err:=ic.customizeImage(newJob.image, newJob.configDirectory, newJob.destinationDir)
-                if(err!=nil){
-                    ic.jobRequester.OnCustomizeJobSuccess(newJob.image, createdFile)
+                if(err==nil){
+                    ic.jobRequester.OnCustomizeJobSuccess(newJob.image, newJob.jobId, createdFile)
                 }else{
-                    ic.jobRequester.OnCustomizeJobError(newJob.image, err)
+                    ic.jobRequester.OnCustomizeJobError(newJob.image, newJob.jobId, err)
                 }
 
             case <-ic.stop:

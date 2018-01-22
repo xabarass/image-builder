@@ -32,7 +32,7 @@
                 var $dropdown = $("#dropdown");
                 $.each(images, function(i, image) {
                     console.log(image)
-                    $dropdown.append($("<option />").val(image.device).text(image.name));
+                    $dropdown.append($("<option />").val(image.name).text(image.name));
                 });
             });
         });
