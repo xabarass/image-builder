@@ -20,6 +20,25 @@ func isExpired(job *jobInfo)(bool){
     return false
 }
 
+func (hi *HttpInterface)clearExpiredJobs(){
+    hi.mapLock.Lock()
+    defer hi.mapLock.Unlock()
+    
+    itemsToDelete := make([]string, 0)
+    for k, j := range hi.activeJobs { 
+        if(isExpired(j)){
+            log.Printf("Job %s scheduled for cleanup", k)
+            itemsToDelete=append(itemsToDelete, k)
+        }
+    }
+
+    for _,k:=range itemsToDelete{
+        if(os.RemoveAll(hi.activeJobs[k].DestDir)==nil){
+            delete(hi.activeJobs, k)    
+        }
+    }
+}
+
 // TODO: Make thread safe!
 // Periodically checks for old jobs and removes them
 func (hi *HttpInterface)startCleanupService(){
@@ -28,20 +47,8 @@ func (hi *HttpInterface)startCleanupService(){
             select{
             
             case <-time.After(time.Minute):
-                itemsToDelete := make([]string, 0)
-                for k, j := range hi.activeJobs { 
-                    log.Printf("Running cleanup")
-                    if(isExpired(j)){
-                        log.Printf("Job %s scheduled for cleanup", k)
-                        itemsToDelete=append(itemsToDelete, k)
-                    }
-                }
-
-                for _,k:=range itemsToDelete{
-                    if(os.RemoveAll(hi.activeJobs[k].DestDir)==nil){
-                        delete(hi.activeJobs, k)    
-                    }
-                }
+                hi.clearExpiredJobs()
+                
 
             case <-hi.stop:
                 log.Println("CleanupService >> Got request to shutdown!");
