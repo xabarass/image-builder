@@ -22,7 +22,7 @@ type AvailableImage struct {
 type ImageBuildStatus struct {
     Id string             `json:"job_id"`
     Exists bool           `json:"job_exists"`
-    Finished bool         `json:"job_exists"`
+    Finished bool         `json:"build_finished"`
 }
 
 // Callback interface
