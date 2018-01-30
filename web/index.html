@@ -35,9 +35,7 @@
         $( document ).ready(function() {
             console.log( "Loaded!" );
 
-            $.get("/get-images", function( data ) {
-                images=JSON.parse(data)
-
+            $.get("/get-images", function( images ) {
                 var $dropdown = $("#dropdown");
                 $.each(images, function(i, image) {
                     console.log(image)
