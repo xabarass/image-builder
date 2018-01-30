@@ -7,12 +7,12 @@ import (
     "encoding/json"
 )
 
-func sendError(w http.ResponseWriter, message string, errorCode int32){
+func sendError(w http.ResponseWriter, message string, errorCode int){
     resp:=errorResponse{
         Message:message,
         ErrorCode:errorCode,
     }
-
+    w.WriteHeader(errorCode)
     json.NewEncoder(w).Encode(resp)
 }
 
@@ -51,7 +51,7 @@ func (i *HttpInterface)CreateImageHandler(w http.ResponseWriter, r *http.Request
     log.Printf("Uploading file name %s\n", header.Filename)
     
     jobId, err:= i.createNewJob(imageName, file)
-    if(err!=nil){
+    if(err != nil){
         sendError(w, err.Error(), 400)  //TODO: Fix error codes
         return
     }

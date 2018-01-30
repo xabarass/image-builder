@@ -9,7 +9,7 @@ type createImageResponse struct {
 
 type errorResponse struct {
     Message string  `json:"message"`
-    ErrorCode int32   `json:"err_code"`
+    ErrorCode int   `json:"err_code"`
 }
 
 type AvailableImage struct {
