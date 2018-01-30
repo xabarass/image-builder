@@ -79,3 +79,16 @@ func (hi *HttpInterface)removeJob(jobId string){
 
     delete(hi.activeJobs, jobId)
 }
+
+func (hi *HttpInterface)getAllJobsStatus()([]*ImageBuildStatus){
+    hi.mapLock.Lock()
+    defer hi.mapLock.Unlock()
+
+    allJobs := make([]*ImageBuildStatus, 0, len(hi.activeJobs))
+
+    for _, job := range hi.activeJobs {
+        allJobs=append(allJobs, &ImageBuildStatus{Id:job.JobId, Exists:true, Finished: job.finished})
+    }
+
+    return allJobs
+}
