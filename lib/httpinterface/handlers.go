@@ -87,6 +87,23 @@ func (i *HttpInterface)DownloadImage(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func (i *HttpInterface)GetImageStatus(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    jobId:=vars["job_id"]
+    log.Printf("Getting status for image %s", jobId)
+
+    finished, _, err:=i.getImageForJob(jobId)
+    status := ImageBuildStatus{Id:jobId, Finished:finished}
+    if(err!=nil){
+        status.Exists=false
+    }else{
+        status.Exists=true
+    }
+
+    json.NewEncoder(w).Encode(status)
+}
+
+
 func (i *HttpInterface)GetImages(w http.ResponseWriter, r *http.Request) {
     availableImages := i.imgMgr.GetAvailableImages()
 
@@ -99,6 +116,7 @@ func createHandler(hi *HttpInterface, authorizedTokens map[string]bool)(*mux.Rou
     r.HandleFunc("/create/{image_name}", TokenAuth(authorizedTokens, hi.CreateImageHandler)).Methods("POST")
     r.HandleFunc("/get-images", hi.GetImages).Methods("GET")
     r.HandleFunc("/download/{job_id}", hi.DownloadImage).Methods("GET")
+    r.HandleFunc("/status/{job_id}", hi.GetImageStatus).Methods("GET")
 
     r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("./web/"))))
 

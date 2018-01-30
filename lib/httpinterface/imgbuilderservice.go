@@ -19,6 +19,12 @@ type AvailableImage struct {
     Version string          `json:"version"`
 }
 
+type ImageBuildStatus struct {
+    Id string             `json:"job_id"`
+    Exists bool           `json:"job_exists"`
+    Finished bool         `json:"job_exists"`
+}
+
 // Callback interface
 
 type ImageBuilderService interface {
