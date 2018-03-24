@@ -5,6 +5,8 @@ if [ "$#" -ne 5 ]; then
     exit 1
 fi
 
+set -e
+
 config_dir=$1
 home_dir=$2
 etc_dir=$3
@@ -14,8 +16,8 @@ dest_dir=$5
 #img_file="${img_file}1"
 
 echo "Copy gen folder"
-rm -rf  "${home_dir}/go/src/github.com/netsec-ethz/scion/gen"
-cp -r "${config_dir}/gen" "${home_dir}/go/src/github.com/netsec-ethz/scion"
+rm -rf  "${home_dir}/go/src/github.com/scionproto/scion/gen"
+cp -r "${config_dir}/gen" "${home_dir}/go/src/github.com/scionproto/scion"
 
 rm -rf "${etc_dir}/openvpn/client.conf"
 if [ -f "${config_dir}/client.conf" ]; then

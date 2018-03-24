@@ -82,6 +82,9 @@ func (im *ImageManager)mountScionImage(scimg *images.ScionImage) (error){
     cmd := exec.Command("sudo", im.config.MountScript, scimg.File, 
         scimg.GetPathFor(images.Root), scimg.GetPathFor(images.Home), scimg.GetPathFor(images.Etc), os.Getenv("USER"))
 
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+
     cmd.Run()
 
     return nil
